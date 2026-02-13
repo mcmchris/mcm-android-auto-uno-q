@@ -1,0 +1,53 @@
+# 1. Asegurar que no tenga el USB agarrado
+echo "" | sudo tee /sys/kernel/config/usb_gadget/g_hybrid/UDC 2>/dev/null
+
+# 2. Desarmar su estructura interna (de adentro hacia afuera)
+sudo rm -f /sys/kernel/config/usb_gadget/g_hybrid/configs/c.1/mass_storage.0 2>/dev/null
+sudo rm -f /sys/kernel/config/usb_gadget/g_hybrid/configs/c.1/ffs.android 2>/dev/null
+sudo rm -f /sys/kernel/config/usb_gadget/g_hybrid/configs/c.1/accessory.usb0 2>/dev/null
+
+sudo rmdir /sys/kernel/config/usb_gadget/g_hybrid/configs/c.1/strings/0x409 2>/dev/null
+sudo rmdir /sys/kernel/config/usb_gadget/g_hybrid/configs/c.1 2>/dev/null
+
+sudo rmdir /sys/kernel/config/usb_gadget/g_hybrid/functions/mass_storage.0 2>/dev/null
+sudo rmdir /sys/kernel/config/usb_gadget/g_hybrid/functions/ffs.android 2>/dev/null
+sudo rmdir /sys/kernel/config/usb_gadget/g_hybrid/functions/accessory.usb0 2>/dev/null
+
+sudo rmdir /sys/kernel/config/usb_gadget/g_hybrid/strings/0x409 2>/dev/null
+
+# 3. Borrar el gadget fantasma
+sudo rmdir /sys/kernel/config/usb_gadget/g_hybrid 2>/dev/null
+
+
+
+# 1. Detener servicios que puedan estar usando el gadget
+sudo systemctl stop aa-dongle.service
+sudo killall aawgd 2>/dev/null
+
+# 2. Desconectar el hardware (UDC)
+# Esto "desenchufa" el cable virtual. Si da error, lo ignoramos.
+echo "" | sudo tee /sys/kernel/config/usb_gadget/g_android/UDC 2>/dev/null
+
+# 3. Desmontar FunctionFS (Liberar /dev/ffs)
+sudo umount /dev/ffs 2>/dev/null
+
+# 4. Romper Vínculos (Links simbólicos) inside configs
+# Primero borramos los enlaces dentro de la carpeta configs/c.1
+sudo rm -f /sys/kernel/config/usb_gadget/g_android/configs/c.1/mass_storage.0 2>/dev/null
+sudo rm -f /sys/kernel/config/usb_gadget/g_android/configs/c.1/ffs.android 2>/dev/null
+sudo rm -f /sys/kernel/config/usb_gadget/g_android/configs/c.1/accessory.usb0 2>/dev/null
+
+# 5. Borrar Directorios de Strings y Configuración
+sudo rmdir /sys/kernel/config/usb_gadget/g_android/configs/c.1/strings/0x409 2>/dev/null
+sudo rmdir /sys/kernel/config/usb_gadget/g_android/configs/c.1 2>/dev/null
+
+# 6. Borrar Funciones (Ahora que no están vinculadas, se dejan borrar)
+sudo rmdir /sys/kernel/config/usb_gadget/g_android/functions/mass_storage.0 2>/dev/null
+sudo rmdir /sys/kernel/config/usb_gadget/g_android/functions/ffs.android 2>/dev/null
+sudo rmdir /sys/kernel/config/usb_gadget/g_android/functions/accessory.usb0 2>/dev/null
+
+# 7. Borrar Strings del Gadget principal
+sudo rmdir /sys/kernel/config/usb_gadget/g_android/strings/0x409 2>/dev/null
+
+# 8. EL GRAN FINAL: Borrar la carpeta g_android
+sudo rmdir /sys/kernel/config/usb_gadget/g_android 2>/dev/null
