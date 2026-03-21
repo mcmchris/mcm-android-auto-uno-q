@@ -5,10 +5,10 @@ This project turns an **Arduino UNO Q** (2GB/4GB) running Linux into a *Plug & P
 ## ✨ Main Features (V7.4)
 
 * **100% Autonomous Installation (`install.sh`):** Automatically configures networks, USB Gadgets, Bluetooth, and dependencies.
+* **USB-Drop Proof:** The installation survives and completes even if the ADB/SSH connection over USB drops during the process.
 * **Safe Turbo Boot:** Disables unnecessary Linux services for a fast and optimized boot sequence.
 * **Stable Wireless Network:** Hostapd forced to 5GHz (HT20) with IPv6 disabled to prevent crashes due to duplicate IP addresses.
-* **USB-Drop Proof:** The installation survives and completes even if the ADB/SSH connection over USB drops during the process.
-* **Hardware Hard Reset:** Integration with the board's physical user button to clear the Bluetooth device cache with 3 quick clicks (via DBus).
+* **Hardware Hard Reset:** Integration with the board's physical user button to clear the Bluetooth device cache with 3 quick clicks.
 * **LED Indicators:** Visual feedback during the installation process via the blue user LED.
 
 ---
@@ -16,7 +16,7 @@ This project turns an **Arduino UNO Q** (2GB/4GB) running Linux into a *Plug & P
 ## 📁 Repository Structure
 
 * `/mcm_aa_installer` - Main installer folder.
-  * `/aawg_src` - Original source code of the Android Auto Wireless daemon (if applicable).
+  * `/aawg_src` - Original source code of the Android Auto Wireless daemon.
   * `/bin` - Precompiled binaries and execution scripts (`aawgd`, `umtprd`, `start_aa_final.sh`).
   * `/conf` - Master configuration files (`main.conf`, `umtprd.conf`).
   * `/kernel` - Custom Kernel `.deb` packages to enable USB Gadget and MTP modules.
@@ -69,11 +69,11 @@ Once installed, the board will automatically create a hidden WiFi network and br
 ### Troubleshooting (The Magic Button)
 If you change phones, the device enters a connection loop, or Android Auto fails to start:
 1. Go to your phone's Bluetooth settings and select **"Forget"** for the dongle's network.
-2. On the Arduino board, press the physical **user button 3 quick times**.
+2. On the UNO Q board, press the physical **user button 3 quick times**.
 3. The blue LED will blink 5 times.
 4. The system will purge all saved devices directly from RAM (via DBus), restart the Bluetooth antenna, and be good as new, ready for a clean pairing process.
 
 ---
 
-## 📜 License and Acknowledgments
-*(Add your desired license here, e.g., MIT, GPLv3, and any additional credits you want to include).*
+## 📜 Acknowledgments
+Adapted and ported from this [repository](https://github.com/nisargjhaveri/WirelessAndroidAutoDongle).

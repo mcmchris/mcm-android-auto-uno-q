@@ -1,10 +1,10 @@
 [Unit]
 Description=Android Auto Wireless Dongle Service (Turbo)
-# --- OPTIMIZACIÓN DE ARRANQUE ---
-# No esperamos dependencias normales (como entorno gráfico o red completa).
+# --- BOOT OPTIMIZATION ---
+# Do not wait for normal dependencies (like graphical environment or full network).
 DefaultDependencies=no
 
-# Arrancamos en cuanto el disco local y la configuración del kernel (USB Gadgets) estén listos.
+# Start as soon as the local disk and kernel configuration (USB Gadgets) are ready.
 After=local-fs.target sys-kernel-config.mount bluetooth.service
 Wants=bluetooth.service
 # --------------------------------
@@ -15,11 +15,11 @@ ExecStart=/usr/local/bin/start_aa_final.sh
 KillSignal=SIGTERM
 TimeoutStopSec=5
 
-# Reinicio inmediato si falla (1s en vez de 5s)
+# Immediate restart on failure (1s instead of 5s)
 Restart=always
 RestartSec=1
 
-# --- ARREGLO DEL MICRÓFONO (PRESERVADO) ---
+# --- MICROPHONE FIX (PRESERVED) ---
 LimitRTPRIO=99
 CPUSchedulingPolicy=fifo
 CPUSchedulingPriority=10
@@ -30,5 +30,5 @@ Group=root
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 [Install]
-# Arrancar MUCHO antes que el login de usuario
+# Start MUCH earlier than user login
 WantedBy=sysinit.target
