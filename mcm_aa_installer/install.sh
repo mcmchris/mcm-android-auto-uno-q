@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh - Automatic Installer V7.4 (LED Status, Safe Boot, USB-Drop Proof & BT DBus-Reset)
+# install.sh - Automatic Installer V7.5 (RGB LED Status, Safe Boot, USB-Drop Proof & BT DBus-Reset)
 
 trap "" HUP
 set -e
@@ -16,10 +16,17 @@ export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 export DEBIAN_PRIORITY=critical
 
-# === CONTROL DE LED: ENCENDIDO (Instalación en proceso) ===
-LED_PATH="/sys/class/leds/blue:user/brightness"
-echo 1 > "$LED_PATH" 2>/dev/null || true
-echo ">>> Visual Status: Blue LED turned ON."
+# === RGB LED STATUS (Autonomous Phase Start: Orange R+G) ===
+# Adjust paths if needed (e.g., usb instead of user)
+LED_R_PATH="/sys/class/leds/red:user/brightness"
+LED_G_PATH="/sys/class/leds/green:user/brightness"
+LED_B_PATH="/sys/class/leds/blue:user/brightness"
+
+# Turn on Orange (Rojo + Verde)
+echo 1 > "$LED_R_PATH" 2>/dev/null || true
+echo 1 > "$LED_G_PATH" 2>/dev/null || true
+echo 0 > "$LED_B_PATH" 2>/dev/null || true
+echo ">>> Visual Status: RGB LED turned ORANGE (Installation in progress)."
 
 echo "=== [0/6] INSTALLING CUSTOM KERNEL ==="
 if [ -d "kernel" ]; then
@@ -29,7 +36,9 @@ if [ -d "kernel" ]; then
     cd ..
 else
     echo "ERROR: 'kernel' folder not found. Aborting."
-    echo 0 > "$LED_PATH" 2>/dev/null || true
+    # Turn off LED on fatal error
+    echo 0 > "$LED_R_PATH" 2>/dev/null || true
+    echo 0 > "$LED_G_PATH" 2>/dev/null || true
     exit 1
 fi
 
@@ -100,10 +109,19 @@ cat << 'EOF' > /usr/local/bin/bt_reset_monitor.py
 import time
 import subprocess
 import evdev
+import threading
 
-LED_PATH = '/sys/class/leds/blue:user/brightness'
-CLICK_WINDOW = 2.0
-REQUIRED_CLICKS = 3
+# Dynamic RGB Mapping
+# Adjust paths if needed
+LED_PATHS = {
+    'red':   '/sys/class/leds/red:user/brightness',
+    'green': '/sys/class/leds/green:user/brightness',
+    'blue':  '/sys/class/leds/blue:user/brightness'
+}
+CLICK_TIMEOUT = 0.8  # Seconds to wait after the last click before evaluating
+
+click_count = 0
+timer = None
 
 def get_button_device():
     devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
@@ -112,20 +130,36 @@ def get_button_device():
             return device
     return evdev.InputDevice('/dev/input/event1')
 
-def blink_led(times):
+def set_color(r, g, b):
+    # Set RGB state, ensure all other LEDs are off
+    cmd_r = 0 if r == 0 else 1
+    cmd_g = 0 if g == 0 else 1
+    cmd_b = 0 if b == 0 else 1
     try:
-        for _ in range(times):
-            with open(LED_PATH, 'w') as f:
-                f.write('1')
-            time.sleep(0.08)
-            with open(LED_PATH, 'w') as f:
-                f.write('0')
-            time.sleep(0.08)
+        with open(LED_PATHS['red'], 'w') as f: f.write(str(cmd_r))
+        with open(LED_PATHS['green'], 'w') as f: f.write(str(cmd_g))
+        with open(LED_PATHS['blue'], 'w') as f: f.write(str(cmd_b))
     except Exception:
         pass
 
+def turn_off():
+    try:
+        for p in LED_PATHS.values():
+            with open(p, 'w') as f: f.write('0')
+    except Exception:
+        pass
+
+def blink_color(times, r, g, b, delay=0.08):
+    turn_off()
+    for _ in range(times):
+        set_color(r, g, b)
+        time.sleep(delay)
+        turn_off()
+        time.sleep(delay)
+
 def reset_bluetooth():
-    blink_led(5)
+    # Fast Yellow Blinking (R+G)
+    blink_color(times=5, r=1, g=1, b=0, delay=0.06)
     
     subprocess.run(['systemctl', 'stop', 'aa-dongle'], shell=False)
     time.sleep(1)
@@ -144,26 +178,48 @@ def reset_bluetooth():
     time.sleep(1)
     subprocess.run(['systemctl', 'start', 'aa-dongle'], shell=False)
 
+def activate_debug_mode():
+    # Very Fast Cyan Blinking (G+B)
+    blink_color(times=10, r=0, g=1, b=1, delay=0.04)
+    # Exiting script, dynamic indicators are set in enable_debug.sh
+    subprocess.run(['/usr/local/bin/enable_debug.sh'], shell=False)
+
+def evaluate_clicks():
+    global click_count, timer
+    count = click_count
+    click_count = 0  # Reset for the next sequence
+    timer = None
+    
+    if count == 3 or count == 4:
+        reset_bluetooth()
+    elif count >= 5:
+        activate_debug_mode()
+
 def main():
+    global click_count, timer
+    # Ensure LEDs start OFF
+    turn_off()
+    
     try:
         device = get_button_device()
         device.grab()
     except Exception:
         return
 
-    clicks = []
     try:
         for event in device.read_loop():
             if event.type == evdev.ecodes.EV_KEY:
                 key_event = evdev.categorize(event)
+                # Count only when the button is pressed down (keystate == 1)
                 if key_event.keycode == 'KEY_POWER' and key_event.keystate == 1:
-                    now = time.time()
-                    clicks.append(now)
-                    clicks = [t for t in clicks if now - t <= CLICK_WINDOW]
-
-                    if len(clicks) >= REQUIRED_CLICKS:
-                        reset_bluetooth()
-                        clicks = []
+                    click_count += 1
+                    
+                    # Reset the timer with every new click
+                    if timer is not None:
+                        timer.cancel()
+                    
+                    timer = threading.Timer(CLICK_TIMEOUT, evaluate_clicks)
+                    timer.start()
     except Exception:
         pass
 
@@ -198,6 +254,7 @@ chmod +x bin/*
 cp bin/aawgd /usr/local/bin/
 cp bin/umtprd /usr/sbin/
 cp bin/start_aa_final.sh /usr/local/bin/
+cp bin/enable_debug.sh /usr/local/bin/
 
 if [ -f "/sys/class/net/wlan0/address" ]; then
     REAL_MAC=$(cat /sys/class/net/wlan0/address | tr -d '\n')
@@ -258,11 +315,20 @@ fi
 
 systemctl set-default multi-user.target 2>/dev/null || true
 
-# === CONTROL DE LED: APAGADO (Instalación finalizada) ===
+# === RGB LED STATUS (Autonomous Phase Stop: Solid GREEN -> Turn Off) ===
 echo "======================================================="
-echo "   V7.4 INSTALLATION COMPLETED! REBOOTING..."
+echo "   V7.5 INSTALLATION COMPLETED! REBOOTING..."
 echo "======================================================="
-echo 0 > "$LED_PATH" 2>/dev/null || true
+# Flash Solid Green (Verde Puro) for final confirmation
+echo 0 > "$LED_R_PATH"
+echo 1 > "$LED_G_PATH"
+echo 0 > "$LED_B_PATH"
 sync
 sleep 2
+
+# Turn OFF all before rebooting
+echo 0 > "$LED_R_PATH"
+echo 0 > "$LED_G_PATH"
+echo 0 > "$LED_B_PATH"
+
 reboot
