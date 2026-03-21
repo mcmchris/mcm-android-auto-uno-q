@@ -1,116 +1,79 @@
-# mcm-android-auto-uno-q
+# 🚗 MCM Android Auto Wireless Dongle for Arduino UNO Q
 
-Despues que la UNO Q tiene el Kernel correcto sigue los pasos siguientes:
+This project turns an **Arduino UNO Q** (2GB/4GB) running Linux into a *Plug & Play* Wireless Android Auto Dongle. It allows you to connect your phone to your vehicle's infotainment system without cables, using an ultra-fast 5GHz WiFi and Bluetooth connection.
 
+## ✨ Main Features (V7.4)
+
+* **100% Autonomous Installation (`install.sh`):** Automatically configures networks, USB Gadgets, Bluetooth, and dependencies.
+* **Safe Turbo Boot:** Disables unnecessary Linux services for a fast and optimized boot sequence.
+* **Stable Wireless Network:** Hostapd forced to 5GHz (HT20) with IPv6 disabled to prevent crashes due to duplicate IP addresses.
+* **USB-Drop Proof:** The installation survives and completes even if the ADB/SSH connection over USB drops during the process.
+* **Hardware Hard Reset:** Integration with the board's physical user button to clear the Bluetooth device cache with 3 quick clicks (via DBus).
+* **LED Indicators:** Visual feedback during the installation process via the blue user LED.
+
+---
+
+## 📁 Repository Structure
+
+* `/mcm_aa_installer` - Main installer folder.
+  * `/aawg_src` - Original source code of the Android Auto Wireless daemon (if applicable).
+  * `/bin` - Precompiled binaries and execution scripts (`aawgd`, `umtprd`, `start_aa_final.sh`).
+  * `/conf` - Master configuration files (`main.conf`, `umtprd.conf`).
+  * `/kernel` - Custom Kernel `.deb` packages to enable USB Gadget and MTP modules.
+  * `/libs` - Dynamic libraries required for execution.
+  * `aa-dongle.service` - Original Systemd service configuration file.
+  * `install.sh` - The master automated installer script.
+
+---
+
+## 🛠️ Prerequisites
+
+1. An **Arduino UNO Q** board powered on and running its default Linux distribution.
+2. Connection to the board via **SSH** or **ADB shell** (via WiFi, Ethernet, or USB cable).
+3. **Internet connection** on the board (required to download packages via `apt-get` during installation).
+
+---
+
+## 🚀 Installation Guide
+
+**Step 1:** Clone this repository or transfer the `mcm_aa_installer` folder to your board (e.g., to the `/home/arduino/` or `~` directory).
+
+**Step 2:** Enter the installer folder in your board's terminal:
 ```bash
-sudo apt update
-sudo apt install -y build-essential cmake git pkg-config \
-    libprotobuf-dev protobuf-compiler \
-    libsigc++-2.0-dev \
-    libglib2.0-dev libdbus-1-dev
-
-cd ~
-# Descargar código fuente versión 2.5.2
-wget https://github.com/dbus-cxx/dbus-cxx/archive/refs/tags/2.5.2.tar.gz
-tar -xvf 2.5.2.tar.gz
-cd dbus-cxx-2.5.2
-
-# Configurar y compilar
-mkdir build
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_GLIB_SUPPORT=ON
-make -j$(nproc)
-
-# Instalar en el sistema
-sudo make install
-sudo ldconfig # Actualizar caché de librerías
+cd mcm_aa_installer
 ```
 
-```powershell
-# Ajusta la ruta y la IP
-scp -r WirelessAndroidAutoDongle/aa_wireless_dongle/package/aawg/src arduino@10.0.0.251:/home/arduino/aawg_src
-```
-
+**Step 3:** Grant execution permissions to all scripts:
 ```bash
-cd ~/aawg_src
-
-# El Makefile [cite: 2] espera encontrar dbus-cxx-2.0. 
-# Si pkg-config no lo encuentra como 'dbus-cxx-2.0', quizás se instaló como 'dbus-cxx-2.5'.
-# Verificamos:
-pkg-config --list-all | grep dbus-cxx
+chmod +x install.sh bin/*.sh
 ```
 
-
+**Step 4:** Run the installer with superuser privileges:
 ```bash
-# MODIFICA el MAKEFILE con esto:
-nano Makefile
-
-.PHONY: clean
-.SECONDARY:
-
-# CAMBIO 1: Cambia 'protobuf-lite' por 'protobuf' para evitar errores de símbolos faltantes
-EXTRA_CXXFLAGS += $(shell $(PKG_CONFIG) --cflags --libs dbus-cxx-2.0 protobuf)
-
-PROTO_FILES = $(wildcard proto/*.proto)
-PROTO_HEADERS = $(PROTO_FILES:proto=pb.h)
-
-ALL_HEADERS = $(wildcard *.h) $(PROTO_HEADERS)
-
-aawgd: aawgd.o bluetoothHandler.o bluetoothProfiles.o bluetoothAdvertisement.o proxyHandler.o uevent.o usb.o common.o proto/WifiInfoResponse.pb.o proto/WifiStartRequest.pb.o
-	# CAMBIO 2: Mueve $(EXTRA_CXXFLAGS) al FINAL de la línea
-	$(CXX) $(CXXFLAGS) -o '$@' $^ $(EXTRA_CXXFLAGS)
-
-%.o: %.cpp
-%.o: %.cpp $(ALL_HEADERS)
-	$(CXX) $(CXXFLAGS) $(EXTRA_CXXFLAGS) -c -o '$@' '$<'
-
-%.pb.o: %.pb.cc %.pb.h
-	$(CXX) $(CXXFLAGS) $(EXTRA_CXXFLAGS) -c -o '$@' '$<'
-
-proto/%.pb.cc proto/%.pb.h: proto/%.proto
-	cd $(<D) && $(PROTOC) --cpp_out=. $*.proto
-
-clean:
-	-rm aawgd
-
+sudo ./install.sh
 ```
 
-```bash
-# Compilamos
-make PROTOC=protoc PKG_CONFIG=pkg-config
-```
+### ⚠️ IMPORTANT DURING INSTALLATION!
+* Upon starting, the board's **blue LED will turn ON**, indicating the process is active.
+* The script will disable the board's network and USB services to optimize boot time. **If you are connected via USB cable (ADB) or SSH, your terminal connection will abruptly close.** This is completely normal!
+* **DO NOT DISCONNECT POWER TO THE BOARD.** The process will continue running flawlessly in the background.
+* You will know the installation finished successfully when the **blue LED turns OFF** and the board reboots itself (takes approximately 1-2 minutes).
 
+---
 
+## 🔄 Bluetooth Usage and Hard Reset
 
---------------------------------------------------------------------------
+Once installed, the board will automatically create a hidden WiFi network and broadcast a Bluetooth signal.
+* **Pairing:** Search for Bluetooth devices from your Android phone and connect to the board. Android Auto will launch automatically on your car's screen.
 
-Con Prepare_gadgets.sh:
+### Troubleshooting (The Magic Button)
+If you change phones, the device enters a connection loop, or Android Auto fails to start:
+1. Go to your phone's Bluetooth settings and select **"Forget"** for the dongle's network.
+2. On the Arduino board, press the physical **user button 3 quick times**.
+3. The blue LED will blink 5 times.
+4. The system will purge all saved devices directly from RAM (via DBus), restart the Bluetooth antenna, and be good as new, ready for a clean pairing process.
 
-Hay que hacer esto antes:
+---
 
-```bash
-# 1. Asegurar que nada esté conectado al puerto
-echo "" | sudo tee /sys/class/udc/4e00000.usb/UDC
-
-# 2. Matar cualquier proceso que esté usando el driver
-sudo killall aawgd
-sudo fuser -k /dev/usb_accessory
-
-# 3. Desmontar el gadget "g_accessory" (EL CULPABLE)
-# Primero rompemos el enlace simbólico
-sudo rm /sys/kernel/config/usb_gadget/g_accessory/configs/c.1/accessory.acc0
-# Luego borramos la configuración
-sudo rmdir /sys/kernel/config/usb_gadget/g_accessory/configs/c.1/strings/0x409
-sudo rmdir /sys/kernel/config/usb_gadget/g_accessory/configs/c.1
-# AHORA sí podemos borrar la función (aquí es donde fallaba)
-sudo rmdir /sys/kernel/config/usb_gadget/g_accessory/functions/accessory.acc0
-# Y finalmente el gadget
-sudo rmdir /sys/kernel/config/usb_gadget/g_accessory/strings/0x409
-sudo rmdir /sys/kernel/config/usb_gadget/g_accessory
-
-# 4. Desmontar el gadget "g_default" (Por si acaso)
-sudo rmdir /sys/kernel/config/usb_gadget/g_default/configs/c.1/strings/0x409
-sudo rmdir /sys/kernel/config/usb_gadget/g_default/configs/c.1
-sudo rmdir /sys/kernel/config/usb_gadget/g_default/strings/0x409
-sudo rmdir /sys/kernel/config/usb_gadget/g_default
-```
+## 📜 License and Acknowledgments
+*(Add your desired license here, e.g., MIT, GPLv3, and any additional credits you want to include).*
