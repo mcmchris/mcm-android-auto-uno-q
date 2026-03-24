@@ -2,6 +2,8 @@
 
 This project turns an **Arduino UNO Q** (2GB/4GB) running Linux into a *Plug & Play* Wireless Android Auto Dongle. It allows you to connect your phone to your vehicle's infotainment system without cables, using an ultra-fast 5GHz WiFi and Bluetooth connection.
 
+![](/readme_assets/aa-wireless-tb.jpg)
+
 ## ✨ Main Features (V7.4)
 
 * **100% Autonomous Installation (`install.sh`):** Automatically configures networks, USB Gadgets, Bluetooth, and dependencies.
