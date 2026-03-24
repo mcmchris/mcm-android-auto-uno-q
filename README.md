@@ -1,4 +1,4 @@
-# 🚗 MCM Android Auto Wireless Dongle for Arduino UNO Q
+# 🚗 Android Auto Wireless Dongle for Arduino UNO Q
 
 This project turns an **Arduino UNO Q** (2GB/4GB) running Linux into a *Plug & Play* Wireless Android Auto Dongle. It allows you to connect your phone to your vehicle's infotainment system without cables, using an ultra-fast 5GHz WiFi and Bluetooth connection.
 
